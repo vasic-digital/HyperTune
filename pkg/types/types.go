@@ -9,29 +9,35 @@ import (
 
 // ParameterSpace represents parameterspace data.
 type ParameterSpace struct {
-	FrequencyPenalty float64
-	MaxTokens int
-	TopP float64
-	PresencePenalty float64
+	FrequencyPenalty  float64
+	MaxTokens         int
+	TopP              float64
+	PresencePenalty   float64
 	RepetitionPenalty float64
-	TopK int
-	Temperature float64
+	TopK              int
+	Temperature       float64
 }
 
 // Defaults applies default values for unset fields.
 func (o *ParameterSpace) Defaults() {
-	if o.MaxTokens == 0 { o.MaxTokens = 2048 }
-	if o.TopP == 0 { o.TopP = 1.0 }
-	if o.Temperature == 0 { o.Temperature = 0.7 }
+	if o.MaxTokens == 0 {
+		o.MaxTokens = 2048
+	}
+	if o.TopP == 0 {
+		o.TopP = 1.0
+	}
+	if o.Temperature == 0 {
+		o.Temperature = 0.7
+	}
 }
 
 // OptimizationConfig represents optimizationconfig data.
 type OptimizationConfig struct {
-	Model string
-	Method string
-	Metric string
-	Prompt string
-	Iterations int
+	Model           string
+	Method          string
+	Metric          string
+	Prompt          string
+	Iterations      int
 	ReferenceOutput string
 }
 
@@ -50,16 +56,16 @@ func (o *OptimizationConfig) Validate() error {
 type OptimizationResult struct {
 	AllResults []TrialResult
 	BestParams map[string]float64
-	BestScore float64
+	BestScore  float64
 	Iterations int
-	TimeMs int64
+	TimeMs     int64
 }
 
 // TrialResult represents trialresult data.
 type TrialResult struct {
-	Output string
-	Score float64
-	Params map[string]float64
+	Output    string
+	Score     float64
+	Params    map[string]float64
 	LatencyMs int64
 	Iteration int
 }
@@ -67,8 +73,8 @@ type TrialResult struct {
 // EvaluationMetric represents evaluationmetric data.
 type EvaluationMetric struct {
 	Description string
-	Direction string
-	Name string
+	Direction   string
+	Name        string
 }
 
 // Validate checks that the EvaluationMetric is valid.
@@ -81,4 +87,3 @@ func (o *EvaluationMetric) Validate() error {
 	}
 	return nil
 }
-

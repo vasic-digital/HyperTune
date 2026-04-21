@@ -15,10 +15,10 @@ func TestParameterSpaceDefaults(t *testing.T) {
 
 func TestOptimizationConfigValidateValid(t *testing.T) {
 	opts := OptimizationConfig{
-		Model: "gpt-4",
-		Method: "test",
-		Metric: "test",
-		Prompt: "test prompt",
+		Model:           "gpt-4",
+		Method:          "test",
+		Metric:          "test",
+		Prompt:          "test prompt",
 		ReferenceOutput: "test",
 	}
 	assert.NoError(t, opts.Validate())
@@ -33,8 +33,8 @@ func TestOptimizationConfigValidateEmpty(t *testing.T) {
 func TestEvaluationMetricValidateValid(t *testing.T) {
 	opts := EvaluationMetric{
 		Description: "test description",
-		Direction: "test",
-		Name: "Test Name",
+		Direction:   "test",
+		Name:        "Test Name",
 	}
 	assert.NoError(t, opts.Validate())
 }
