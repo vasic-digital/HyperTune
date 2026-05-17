@@ -13,6 +13,7 @@ func BenchmarkOptimizeRandom(b *testing.B) {
 		b.Fatal(err)
 	}
 	defer c.Close()
+	c.SetRunner(dotsTestRunner)
 	c.SetSeed(42)
 	ctx := context.Background()
 	cfg := types.OptimizationConfig{Model: "m", Prompt: "p", Method: "random", Iterations: 4}
@@ -30,6 +31,7 @@ func BenchmarkGridSearch(b *testing.B) {
 		b.Fatal(err)
 	}
 	defer c.Close()
+	c.SetRunner(dotsTestRunner)
 	ctx := context.Background()
 	cfg := types.OptimizationConfig{Model: "m", Prompt: "p"}
 	space := types.ParameterSpace{}

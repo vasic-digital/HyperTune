@@ -18,6 +18,7 @@ package client
 
 import (
 	"context"
+	"fmt"
 	"math/rand"
 	"strings"
 	"sync"
@@ -390,14 +391,32 @@ func max0(x int) int {
 
 // --- baseline runner / metrics ---
 
-func baselineRunner(_ context.Context, prompt string, params map[string]float64) (string, time.Duration, error) {
-	// deterministic: output length is a linear combo of params so tests have a signal
-	suffix := ""
-	for i := 0; i < int(params["top_p"]*10); i++ {
-		suffix += "."
-	}
-	return prompt + suffix, time.Millisecond, nil
+// baselineRunner previously fabricated outputs by appending a number of "."
+// characters proportional to top_p — a deterministic stand-in installed as
+// the default Runner on New()/NewFromConfig(). Per round-23 §11.4 audit
+// (2026-05-17), any caller forgetting to call SetRunner before invoking
+// Optimize / GridSearch / BayesianOptimize / Evaluate received fabricated
+// optimisation data scored by defaultMetrics — producing MEANINGLESS
+// "best parameters" reports with no error surfaced — CRITICAL PASS-bluff
+// at the library-default layer.
+//
+// Fix: baselineRunner now returns ErrBaselineRunnerNotConfigured. Callers
+// MUST inject a real LLM-dispatching Runner via SetRunner before invoking
+// any optimisation API. Tests that need a deterministic stand-in MUST
+// provide their own runner via SetRunner — the default is no longer a
+// silent dot-padding echo.
+func baselineRunner(_ context.Context, prompt string, _ map[string]float64) (string, time.Duration, error) {
+	_ = prompt
+	return "", 0, ErrBaselineRunnerNotConfigured
 }
+
+// ErrBaselineRunnerNotConfigured is returned when HyperTune's Optimize /
+// GridSearch / BayesianOptimize / Evaluate is invoked without a real LLM
+// Runner injected via SetRunner. The previous baselineRunner default
+// fabricated outputs (prompt + dot-padding proportional to top_p) and
+// returned success, producing meaningless optimisation data — §11.4
+// PASS-bluff at the library-default layer.
+var ErrBaselineRunnerNotConfigured = fmt.Errorf("hypertune: baseline Runner has not been replaced — call client.SetRunner(...) with a real LLM-dispatching runner before invoking Optimize/GridSearch/BayesianOptimize (the previous baseline default produced fabricated optimisation data; §11.4 PASS-bluff removed)")
 
 func defaultMetrics() map[string]Metric {
 	return map[string]Metric{

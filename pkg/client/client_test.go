@@ -2,6 +2,7 @@ package client
 
 import (
 	"context"
+	"errors"
 	"testing"
 	"time"
 
@@ -9,6 +10,29 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+// dotsTestRunner is a deterministic unit-test stand-in for a real LLM Runner.
+// CONST-050(A) permits mocks/stubs in unit tests only — production code MUST
+// receive a real LLM-dispatching Runner via SetRunner, otherwise New()'s
+// default returns ErrBaselineRunnerNotConfigured (round-23 §11.4 audit fix).
+// Output length is a linear combination of top_p so tests have a signal.
+func dotsTestRunner(_ context.Context, prompt string, params map[string]float64) (string, time.Duration, error) {
+	suffix := ""
+	for i := 0; i < int(params["top_p"]*10); i++ {
+		suffix += "."
+	}
+	return prompt + suffix, time.Millisecond, nil
+}
+
+// newTestClient builds a client with the dots stub installed so unit tests
+// have deterministic behaviour without depending on a real LLM provider.
+func newTestClient(t *testing.T) *Client {
+	t.Helper()
+	c, err := New()
+	require.NoError(t, err)
+	c.SetRunner(dotsTestRunner)
+	return c
+}
 
 func TestNew(t *testing.T) {
 	client, err := New()
@@ -32,8 +56,7 @@ func TestConfig(t *testing.T) {
 }
 
 func TestOptimizeRandom(t *testing.T) {
-	c, err := New()
-	require.NoError(t, err)
+	c := newTestClient(t)
 	defer c.Close()
 	c.SetSeed(42)
 
@@ -46,8 +69,7 @@ func TestOptimizeRandom(t *testing.T) {
 }
 
 func TestOptimizeGrid(t *testing.T) {
-	c, err := New()
-	require.NoError(t, err)
+	c := newTestClient(t)
 	defer c.Close()
 
 	res, err := c.Optimize(context.Background(), types.ParameterSpace{}, types.OptimizationConfig{
@@ -59,8 +81,7 @@ func TestOptimizeGrid(t *testing.T) {
 }
 
 func TestOptimizeBayesian(t *testing.T) {
-	c, err := New()
-	require.NoError(t, err)
+	c := newTestClient(t)
 	defer c.Close()
 	c.SetSeed(7)
 
@@ -72,19 +93,17 @@ func TestOptimizeBayesian(t *testing.T) {
 }
 
 func TestOptimizeUnknownMethod(t *testing.T) {
-	c, err := New()
-	require.NoError(t, err)
+	c := newTestClient(t)
 	defer c.Close()
 
-	_, err = c.Optimize(context.Background(), types.ParameterSpace{}, types.OptimizationConfig{
+	_, err := c.Optimize(context.Background(), types.ParameterSpace{}, types.OptimizationConfig{
 		Model: "gpt-4", Prompt: "hello", Method: "gradient-descent",
 	})
 	assert.Error(t, err)
 }
 
 func TestEvaluate(t *testing.T) {
-	c, err := New()
-	require.NoError(t, err)
+	c := newTestClient(t)
 	defer c.Close()
 
 	tr, err := c.Evaluate(context.Background(), map[string]float64{"top_p": 0.9}, "hello", "gpt-4")
@@ -94,16 +113,14 @@ func TestEvaluate(t *testing.T) {
 }
 
 func TestEvaluateEmptyPrompt(t *testing.T) {
-	c, err := New()
-	require.NoError(t, err)
+	c := newTestClient(t)
 	defer c.Close()
-	_, err = c.Evaluate(context.Background(), map[string]float64{}, "", "gpt-4")
+	_, err := c.Evaluate(context.Background(), map[string]float64{}, "", "gpt-4")
 	assert.Error(t, err)
 }
 
 func TestGetMetrics(t *testing.T) {
-	c, err := New()
-	require.NoError(t, err)
+	c := newTestClient(t)
 	defer c.Close()
 
 	ms, err := c.GetMetrics(context.Background())
@@ -112,8 +129,7 @@ func TestGetMetrics(t *testing.T) {
 }
 
 func TestSuggestParameters(t *testing.T) {
-	c, err := New()
-	require.NoError(t, err)
+	c := newTestClient(t)
 	defer c.Close()
 	c.SetSeed(1)
 
@@ -129,6 +145,62 @@ func TestSuggestParameters(t *testing.T) {
 	p2, err := c.SuggestParameters(context.Background(), types.ParameterSpace{}, history)
 	require.NoError(t, err)
 	assert.Contains(t, p2, "temperature")
+}
+
+// TestOptimizeWithoutInjectedRunner_ReturnsSentinel asserts the round-23 §11.4
+// audit fix: New()'s default Runner returns ErrBaselineRunnerNotConfigured
+// when SetRunner is not called, instead of the previous silent dot-padding
+// echo that produced fabricated optimisation data.
+func TestOptimizeWithoutInjectedRunner_ReturnsSentinel(t *testing.T) {
+	c, err := New()
+	require.NoError(t, err)
+	defer c.Close()
+
+	_, err = c.Optimize(context.Background(), types.ParameterSpace{}, types.OptimizationConfig{
+		Model: "gpt-4", Prompt: "hello", Method: "random", Iterations: 3,
+	})
+	require.Error(t, err, "Optimize without injected Runner MUST surface the sentinel error, not return fabricated data")
+	require.True(t, errors.Is(err, ErrBaselineRunnerNotConfigured), "wrapped error MUST be ErrBaselineRunnerNotConfigured; got %v", err)
+}
+
+// TestGridSearchWithoutInjectedRunner_ReturnsSentinel — sentinel propagates
+// through the grid-search path.
+func TestGridSearchWithoutInjectedRunner_ReturnsSentinel(t *testing.T) {
+	c, err := New()
+	require.NoError(t, err)
+	defer c.Close()
+
+	_, err = c.GridSearch(context.Background(), types.ParameterSpace{}, types.OptimizationConfig{
+		Model: "gpt-4", Prompt: "hello",
+	})
+	require.Error(t, err)
+	require.True(t, errors.Is(err, ErrBaselineRunnerNotConfigured))
+}
+
+// TestBayesianOptimizeWithoutInjectedRunner_ReturnsSentinel — sentinel
+// propagates through the BO-lite path.
+func TestBayesianOptimizeWithoutInjectedRunner_ReturnsSentinel(t *testing.T) {
+	c, err := New()
+	require.NoError(t, err)
+	defer c.Close()
+
+	_, err = c.BayesianOptimize(context.Background(), types.ParameterSpace{}, types.OptimizationConfig{
+		Model: "gpt-4", Prompt: "hello", Iterations: 4,
+	})
+	require.Error(t, err)
+	require.True(t, errors.Is(err, ErrBaselineRunnerNotConfigured))
+}
+
+// TestEvaluateWithoutInjectedRunner_ReturnsSentinel — sentinel propagates
+// through the single-trial Evaluate path.
+func TestEvaluateWithoutInjectedRunner_ReturnsSentinel(t *testing.T) {
+	c, err := New()
+	require.NoError(t, err)
+	defer c.Close()
+
+	_, err = c.Evaluate(context.Background(), map[string]float64{"top_p": 0.9}, "hi", "m")
+	require.Error(t, err)
+	require.True(t, errors.Is(err, ErrBaselineRunnerNotConfigured))
 }
 
 func TestSetRunnerAndRegisterMetric(t *testing.T) {

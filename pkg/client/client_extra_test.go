@@ -14,8 +14,7 @@ import (
 // TestSeedReproducibility — identical seed must produce identical BestParams.
 func TestSeedReproducibility(t *testing.T) {
 	run := func(seed int64) *types.OptimizationResult {
-		c, err := New()
-		require.NoError(t, err)
+		c := newTestClient(t)
 		defer c.Close()
 		c.SetSeed(seed)
 		res, err := c.Optimize(context.Background(), types.ParameterSpace{}, types.OptimizationConfig{
@@ -33,8 +32,7 @@ func TestSeedReproducibility(t *testing.T) {
 
 // TestSeedDivergenceWithDifferentSeeds — different seeds must usually diverge.
 func TestSeedDivergenceWithDifferentSeeds(t *testing.T) {
-	c, err := New()
-	require.NoError(t, err)
+	c := newTestClient(t)
 	defer c.Close()
 
 	c.SetSeed(1)
@@ -55,10 +53,9 @@ func TestSeedDivergenceWithDifferentSeeds(t *testing.T) {
 
 // TestOptimizeInvalidConfig — missing model/prompt must error.
 func TestOptimizeInvalidConfig(t *testing.T) {
-	c, err := New()
-	require.NoError(t, err)
+	c := newTestClient(t)
 	defer c.Close()
-	_, err = c.Optimize(context.Background(), types.ParameterSpace{}, types.OptimizationConfig{})
+	_, err := c.Optimize(context.Background(), types.ParameterSpace{}, types.OptimizationConfig{})
 	assert.Error(t, err)
 }
 
@@ -79,8 +76,7 @@ func TestOptimizeRunnerErrorPropagates(t *testing.T) {
 
 // TestRegisterMetricCollision — registering a name twice overrides.
 func TestRegisterMetricCollision(t *testing.T) {
-	c, err := New()
-	require.NoError(t, err)
+	c := newTestClient(t)
 	defer c.Close()
 
 	c.RegisterMetric("m1", func(_ context.Context, _, _ string) (float64, error) { return 0.1, nil })
@@ -114,10 +110,11 @@ func TestRegisterMetricIgnoresNilOrEmpty(t *testing.T) {
 	}
 }
 
-// TestSetRunnerNilIgnored — keeps baseline runner.
+// TestSetRunnerNilIgnored — passing nil to SetRunner must be a no-op (the
+// previously-installed Runner stays in place; with the round-23 §11.4 fix
+// that means the deterministic dots stub remains, not the sentinel default).
 func TestSetRunnerNilIgnored(t *testing.T) {
-	c, err := New()
-	require.NoError(t, err)
+	c := newTestClient(t)
 	defer c.Close()
 	c.SetRunner(nil)
 	tr, err := c.Evaluate(context.Background(), map[string]float64{"top_p": 0.9}, "hi", "m")
@@ -128,8 +125,7 @@ func TestSetRunnerNilIgnored(t *testing.T) {
 // TestSuggestParametersPerturbsAroundBest — with ≥3 history, result should be
 // within perturbation radius of the best point.
 func TestSuggestParametersPerturbsAroundBest(t *testing.T) {
-	c, err := New()
-	require.NoError(t, err)
+	c := newTestClient(t)
 	defer c.Close()
 	c.SetSeed(17)
 
@@ -147,8 +143,7 @@ func TestSuggestParametersPerturbsAroundBest(t *testing.T) {
 
 // TestGridSearchProducesNonEmptyGrid — grid dimension is deterministic.
 func TestGridSearchProducesNonEmptyGrid(t *testing.T) {
-	c, err := New()
-	require.NoError(t, err)
+	c := newTestClient(t)
 	defer c.Close()
 
 	res, err := c.GridSearch(context.Background(), types.ParameterSpace{Temperature: 0.6, TopP: 0.85}, types.OptimizationConfig{
@@ -161,8 +156,7 @@ func TestGridSearchProducesNonEmptyGrid(t *testing.T) {
 
 // TestBayesianOptimizeReducesToSeedOnShortBudget — 3 or fewer iters should not crash.
 func TestBayesianOptimizeReducesToSeedOnShortBudget(t *testing.T) {
-	c, err := New()
-	require.NoError(t, err)
+	c := newTestClient(t)
 	defer c.Close()
 	res, err := c.BayesianOptimize(context.Background(), types.ParameterSpace{}, types.OptimizationConfig{
 		Model: "m", Prompt: "p", Iterations: 2,
