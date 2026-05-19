@@ -1,5 +1,57 @@
+# CONST-053 — build artefacts, caches, temp, secrets, logs, OS/IDE state
+
+# Build artefacts
 *.test
+*.exe
+*.dll
+*.so
+*.dylib
+*.a
+*.o
+/bin/
+/build/
+/dist/
+/out/
+
+# Coverage + reports
 coverage.out
 *.out
-.DS_Store
+htmlcov/
+*.cover
+*.coverprofile
+
+# Caches
 /vendor/
+.cache/
+
+# Temp files
+*.tmp
+*.swp
+*~
+*.orig
+*.rej
+
+# OS state
+.DS_Store
+Thumbs.db
+
+# IDE / editor personal state
+.idea/
+.history/
+.vscode/
+
+# Sensitive-data (CONST-053 + CONST-042 intersection)
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.crt
+id_rsa*
+id_ed25519*
+.netrc
+secrets/
+api_keys.sh
+
+# Logs
+*.log

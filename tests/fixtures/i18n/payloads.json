@@ -1,0 +1,34 @@
+{
+  "inputs": [
+    {
+      "locale": "en",
+      "prompt": "Summarise this article in 3 bullets.",
+      "reference": "Three short bullets summarising the article.",
+      "model": "gpt-4"
+    },
+    {
+      "locale": "sr",
+      "prompt": "Сажми овај чланак у три тачке.",
+      "reference": "Три кратке тачке које сажимају чланак.",
+      "model": "gpt-4"
+    },
+    {
+      "locale": "ja",
+      "prompt": "この記事を3つの箇条書きで要約してください。",
+      "reference": "記事を要約する3つの短い箇条書き。",
+      "model": "gpt-4"
+    },
+    {
+      "locale": "ar",
+      "prompt": "لخص هذا المقال في ثلاث نقاط.",
+      "reference": "ثلاث نقاط قصيرة تلخص المقال.",
+      "model": "gpt-4"
+    },
+    {
+      "locale": "zh-CN",
+      "prompt": "请用三个要点总结这篇文章。",
+      "reference": "总结文章的三个简短要点。",
+      "model": "gpt-4"
+    }
+  ]
+}
